@@ -9,7 +9,7 @@ Initial distribution is via `go install`.
 ## Install
 
 ```bash
-go install github.com/jasonwillschiu/mdrelease-com@latest
+go install github.com/jasonwillschiu/mdrelease@latest
 ```
 
 ## Supported Changelog Format (v1)

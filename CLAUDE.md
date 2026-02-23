@@ -15,10 +15,10 @@
 - `task release-dry-run` prints the full release flow without mutating git state
 
 ## Quick Facts
-- Module path: `github.com/jasonwillschiu/mdrelease-com`
+- Module path: `github.com/jasonwillschiu/mdrelease`
 - Binary: `mdrelease`
 - Entrypoint: `main.go`
-- Install: `go install github.com/jasonwillschiu/mdrelease-com@latest`
+- Install: `go install github.com/jasonwillschiu/mdrelease@latest`
 
 ## Hard Invariants
 - `changelog.md` newest entry must be first and match `# <version> - <summary>`.

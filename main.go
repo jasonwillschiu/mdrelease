@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/jasonwillschiu/mdrelease-com/internal/app"
+	"github.com/jasonwillschiu/mdrelease/internal/app"
 )
 
 func main() {

@@ -1,3 +1,8 @@
+# 0.4.0 - Update: Rename public module path
+- Rename the public Go module path to `github.com/jasonwillschiu/mdrelease`.
+- Update `go install` documentation to use the renamed repository path.
+- Update internal imports to match the new module path.
+
 # 0.3.0 - Add: Top-level help/version flags
 - Add root `--help` (`-h`, `-help`) support that prints usage and exits successfully.
 - Add root `--version` (`-version`) alias for the existing `version` subcommand.

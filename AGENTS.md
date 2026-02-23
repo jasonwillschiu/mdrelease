@@ -4,6 +4,8 @@
 
 This repository is a small Go CLI (`mdrelease`) for changelog-driven releases.
 
+- Module path: `github.com/jasonwillschiu/mdrelease`.
+
 - `main.go`: CLI entrypoint.
 - `internal/app/`: command parsing and release/check/version flows.
 - `internal/changelog/`: changelog parsing logic and tests.
