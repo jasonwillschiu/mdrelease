@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jasonwillschiu/mdrelease/internal/changelog"
-	"github.com/jasonwillschiu/mdrelease/internal/gitutil"
+	"github.com/jasonwillschiu/mdrelease-com/internal/changelog"
+	"github.com/jasonwillschiu/mdrelease-com/internal/gitutil"
 )
 
 const (

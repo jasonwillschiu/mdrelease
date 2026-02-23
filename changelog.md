@@ -1,3 +1,9 @@
+# 0.2.0 - Update: Root entrypoint + public module path
+- Move the CLI entrypoint to repository-root `main.go` for simpler `go install`.
+- Align the Go module path with the public GitHub repository (`mdrelease-com`).
+- Update task build/install commands to target the module root package.
+- Refresh install docs to use `go install github.com/jasonwillschiu/mdrelease-com@latest`.
+
 # 0.1.1 - Fix: Satisfy errcheck for CLI output writes
 - Explicitly ignore `fmt.Fprint*` return values in CLI output paths.
 - Ignore deferred changelog file close errors to satisfy lint checks.

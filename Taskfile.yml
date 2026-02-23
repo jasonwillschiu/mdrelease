@@ -39,12 +39,12 @@ tasks:
     desc: Build the mdrelease CLI
     cmds:
       - mkdir -p bin
-      - go build -o bin/mdrelease ./cmd/mdrelease
+      - go build -o bin/mdrelease .
 
   install:
     desc: Install mdrelease from the local module
     cmds:
-      - go install ./cmd/mdrelease
+      - go install .
 
   clean:
     desc: Remove built binaries

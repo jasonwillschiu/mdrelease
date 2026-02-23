@@ -4,7 +4,7 @@
 
 This repository is a small Go CLI (`mdrelease`) for changelog-driven releases.
 
-- `cmd/mdrelease/main.go`: CLI entrypoint.
+- `main.go`: CLI entrypoint.
 - `internal/app/`: command parsing and release/check/version flows.
 - `internal/changelog/`: changelog parsing logic and tests.
 - `internal/gitutil/`: git shelling helpers and git-related errors.
@@ -26,7 +26,7 @@ Use `task` for the standard workflow:
 - `task check`: builds and runs `./bin/mdrelease check`.
 - `task release-dry-run`: prints the full release flow without mutating git state.
 
-Direct Go equivalents are also valid (for example, `go build ./cmd/mdrelease`).
+Direct Go equivalents are also valid (for example, `go build .`).
 
 ## Coding Style & Naming Conventions
 
