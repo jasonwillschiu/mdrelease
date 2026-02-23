@@ -1,0 +1,80 @@
+version: "3"
+
+tasks:
+  default:
+    cmds:
+      - task --list
+
+  fmt:
+    desc: Format Go source files
+    cmds:
+      - go fmt ./...
+
+  vet:
+    desc: Run go vet across the module
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: Run golangci-lint and gopls diagnostics
+    deps:
+      - fmt
+      - vet
+    cmds:
+      - golangci-lint run ./...
+      - find . -name "*.go" -type f | xargs gopls check -severity=hint || true
+    ignore_error: true
+
+  gopls-check:
+    desc: Run gopls diagnostics only (includes modernize analyzer)
+    cmds:
+      - find . -name "*.go" -type f | xargs gopls check -severity=hint
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+
+  build:
+    desc: Build the mdrelease CLI
+    cmds:
+      - mkdir -p bin
+      - go build -o bin/mdrelease ./cmd/mdrelease
+
+  install:
+    desc: Install mdrelease from the local module
+    cmds:
+      - go install ./cmd/mdrelease
+
+  clean:
+    desc: Remove built binaries
+    cmds:
+      - rm -rf bin/
+
+  version:
+    desc: Print latest version from changelog.md via mdrelease (requires changelog.md)
+    deps:
+      - build
+    cmds:
+      - ./bin/mdrelease version
+
+  check:
+    desc: Validate changelog and git preconditions without creating a release
+    deps:
+      - build
+    cmds:
+      - ./bin/mdrelease check
+
+  release-dry-run:
+    desc: Print the planned full release flow without mutating git state
+    deps:
+      - build
+    cmds:
+      - ./bin/mdrelease --all --dry-run
+
+  release:
+    desc: Run the full mdrelease flow (commit, tag, push)
+    deps:
+      - build
+    cmds:
+      - ./bin/mdrelease --all

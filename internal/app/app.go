@@ -1,0 +1,405 @@
+package app
+
+import (
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+
+	"github.com/jasonwillschiu/mdrelease/internal/changelog"
+	"github.com/jasonwillschiu/mdrelease/internal/gitutil"
+)
+
+const (
+	ExitOK        = 0
+	ExitGeneral   = 1
+	ExitUsage     = 2
+	ExitParse     = 3
+	ExitPreflight = 4
+	ExitGit       = 5
+)
+
+type gitOps interface {
+	EnsureRepo() error
+	EnsureRemote(string) error
+	FetchTags() error
+	EnsureTagAbsent(string) error
+	EnsureTagPresent(string) error
+	StageAll() error
+	HasStagedChanges() (bool, error)
+	Commit(string, string) error
+	CreateTag(string, string, string) error
+	PushHead(string) error
+	PushTag(string, string) error
+}
+
+type deps struct {
+	getenv func(string) string
+	newGit func(io.Writer, io.Writer, bool) gitOps
+}
+
+type usageError struct{ msg string }
+
+func (e *usageError) Error() string { return e.msg }
+
+type preflightError struct{ msg string }
+
+func (e *preflightError) Error() string { return e.msg }
+
+func Run(args []string, stdout, stderr io.Writer) int {
+	d := deps{
+		getenv: os.Getenv,
+		newGit: func(out, errOut io.Writer, dryRun bool) gitOps {
+			return gitutil.NewClient(out, errOut, dryRun)
+		},
+	}
+
+	if err := run(args, stdout, stderr, d); err != nil {
+		if _, isUsage := err.(*usageError); isUsage {
+			fmt.Fprintln(stderr, err.Error())
+			fmt.Fprintln(stderr)
+			printRootUsage(stderr)
+			return ExitUsage
+		}
+
+		switch {
+		case errors.As(err, new(*changelog.ParseError)):
+			fmt.Fprintln(stderr, "Error:", err)
+			if pe := new(changelog.ParseError); errors.As(err, &pe) {
+				fmt.Fprintf(stderr, "Expected format example in %s: %s\n", pe.Path, changelog.ExpectedFormat)
+			}
+			return ExitParse
+		case errors.As(err, new(*preflightError)):
+			fmt.Fprintln(stderr, "Error:", err)
+			return ExitPreflight
+		case errors.As(err, new(*gitutil.GitError)):
+			fmt.Fprintln(stderr, "Error:", err)
+			return ExitGit
+		default:
+			fmt.Fprintln(stderr, "Error:", err)
+			return ExitGeneral
+		}
+	}
+	return ExitOK
+}
+
+func run(args []string, stdout, stderr io.Writer, d deps) error {
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		switch args[0] {
+		case "version":
+			return runVersion(args[1:], stdout, stderr, d)
+		case "check":
+			return runCheck(args[1:], stdout, stderr, d)
+		default:
+			return &usageError{msg: fmt.Sprintf("unknown command: %s", args[0])}
+		}
+	}
+	return runRelease(args, stdout, stderr, d)
+}
+
+type commonConfig struct {
+	changelogPath string
+	remote        string
+	tagPrefix     string
+	dryRun        bool
+}
+
+type releaseActions struct {
+	stageAll   bool
+	commit     bool
+	tag        bool
+	pushCommit bool
+	pushTag    bool
+}
+
+func runVersion(args []string, stdout, stderr io.Writer, d deps) error {
+	fs := flag.NewFlagSet("mdrelease version", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+
+	var changelogFlag string
+	fs.StringVar(&changelogFlag, "changelog", "", "Path to changelog file (default: changelog.md)")
+
+	if err := fs.Parse(args); err != nil {
+		return &usageError{msg: err.Error()}
+	}
+	if fs.NArg() != 0 {
+		return &usageError{msg: "version does not accept positional arguments"}
+	}
+
+	path := resolveChangelogPath(changelogFlag, d.getenv)
+	entry, err := changelog.ParseLatest(path)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(stdout, entry.Version)
+	return nil
+}
+
+func runCheck(args []string, stdout, stderr io.Writer, d deps) error {
+	fs := flag.NewFlagSet("mdrelease check", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+
+	var cfg commonConfig
+	var changelogFlag string
+	fs.StringVar(&changelogFlag, "changelog", "", "Path to changelog file (default: changelog.md)")
+	fs.StringVar(&cfg.remote, "remote", "origin", "Git remote name")
+	fs.StringVar(&cfg.tagPrefix, "tag-prefix", "v", "Tag prefix")
+	fs.BoolVar(&cfg.dryRun, "dry-run", false, "Print planned checks without running mutating steps (skips fetch --tags)")
+
+	if err := fs.Parse(args); err != nil {
+		return &usageError{msg: err.Error()}
+	}
+	if fs.NArg() != 0 {
+		return &usageError{msg: "check does not accept positional arguments"}
+	}
+	cfg.changelogPath = resolveChangelogPath(changelogFlag, d.getenv)
+
+	entry, err := changelog.ParseLatest(cfg.changelogPath)
+	if err != nil {
+		return err
+	}
+
+	tag := cfg.tagPrefix + entry.Version
+	fmt.Fprintf(stdout, "Release check:\n")
+	fmt.Fprintf(stdout, "  Changelog: %s\n", cfg.changelogPath)
+	fmt.Fprintf(stdout, "  Version: %s\n", entry.Version)
+	fmt.Fprintf(stdout, "  Title: %s\n", entry.Summary)
+	fmt.Fprintf(stdout, "  Tag: %s\n", tag)
+
+	git := d.newGit(stdout, stderr, cfg.dryRun)
+	if err := git.EnsureRepo(); err != nil {
+		return err
+	}
+	if err := git.EnsureRemote(cfg.remote); err != nil {
+		return err
+	}
+	if cfg.dryRun {
+		fmt.Fprintln(stdout, "  Fetch tags: skipped in --dry-run")
+	} else {
+		if err := git.FetchTags(); err != nil {
+			return err
+		}
+		fmt.Fprintln(stdout, "  Fetch tags: ok")
+	}
+	if err := git.EnsureTagAbsent(tag); err != nil {
+		return &preflightError{msg: fmt.Sprintf("no new changelog version to release: %s already exists (update %s)", tag, cfg.changelogPath)}
+	}
+	fmt.Fprintln(stdout, "  Tag availability: ok")
+	fmt.Fprintln(stdout, "Check passed.")
+	return nil
+}
+
+func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
+	fs := flag.NewFlagSet("mdrelease", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+
+	var cfg commonConfig
+	var changelogFlag string
+	var all bool
+	var push bool
+	var actions releaseActions
+
+	fs.StringVar(&changelogFlag, "changelog", "", "Path to changelog file (default: changelog.md)")
+	fs.StringVar(&cfg.remote, "remote", "origin", "Git remote name")
+	fs.StringVar(&cfg.tagPrefix, "tag-prefix", "v", "Tag prefix")
+	fs.BoolVar(&cfg.dryRun, "dry-run", false, "Print planned actions without mutating git state")
+	fs.BoolVar(&all, "all", false, "Run full release pipeline (default behavior)")
+	fs.BoolVar(&actions.stageAll, "stage-all", false, "Stage all changes (git add -A)")
+	fs.BoolVar(&actions.commit, "commit", false, "Commit staged changes using changelog title/body")
+	fs.BoolVar(&actions.tag, "tag", false, "Create annotated tag for changelog version")
+	fs.BoolVar(&push, "push", false, "Push commit and tag (alias for --push-commit --push-tag)")
+	fs.BoolVar(&actions.pushCommit, "push-commit", false, "Push HEAD to remote")
+	fs.BoolVar(&actions.pushTag, "push-tag", false, "Push version tag to remote")
+
+	if err := fs.Parse(args); err != nil {
+		return &usageError{msg: err.Error()}
+	}
+	if fs.NArg() != 0 {
+		return &usageError{msg: "mdrelease does not accept positional arguments (use subcommands: check, version)"}
+	}
+	cfg.changelogPath = resolveChangelogPath(changelogFlag, d.getenv)
+
+	visited := visitedFlags(fs)
+	explicitMutation := visited["stage-all"] || visited["commit"] || visited["tag"] || visited["push"] || visited["push-commit"] || visited["push-tag"]
+	if all && explicitMutation {
+		return &usageError{msg: "--all cannot be combined with individual release action flags"}
+	}
+
+	if push {
+		actions.pushCommit = true
+		actions.pushTag = true
+	}
+
+	if all || !explicitMutation {
+		actions = releaseActions{
+			stageAll:   true,
+			commit:     true,
+			tag:        true,
+			pushCommit: true,
+			pushTag:    true,
+		}
+	}
+
+	entry, err := changelog.ParseLatest(cfg.changelogPath)
+	if err != nil {
+		return err
+	}
+	tag := cfg.tagPrefix + entry.Version
+
+	fmt.Fprintln(stdout, "Release info:")
+	fmt.Fprintf(stdout, "  Changelog: %s\n", cfg.changelogPath)
+	fmt.Fprintf(stdout, "  Version: %s\n", entry.Version)
+	fmt.Fprintf(stdout, "  Title: %s\n", entry.Summary)
+	fmt.Fprintf(stdout, "  Tag: %s\n", tag)
+	fmt.Fprintf(stdout, "  Actions: %s\n", actions.String())
+
+	if cfg.dryRun {
+		fmt.Fprintln(stdout, "  Mode: dry-run")
+	}
+
+	git := d.newGit(stdout, stderr, cfg.dryRun)
+	if err := git.EnsureRepo(); err != nil {
+		return err
+	}
+	if err := git.EnsureRemote(cfg.remote); err != nil {
+		return err
+	}
+
+	// Tag creation requires a remote tag check (fetch tags first in normal mode).
+	if actions.tag {
+		if err := git.FetchTags(); err != nil {
+			return err
+		}
+		if err := git.EnsureTagAbsent(tag); err != nil {
+			return &preflightError{msg: fmt.Sprintf("no new changelog version to release: %s already exists (update %s)", tag, cfg.changelogPath)}
+		}
+	}
+
+	if actions.pushTag && !actions.tag {
+		if err := git.EnsureTagPresent(tag); err != nil {
+			return &preflightError{msg: fmt.Sprintf("cannot push tag %s: create it first with --tag (or use default mdrelease/--all)", tag)}
+		}
+	}
+
+	if actions.stageAll {
+		fmt.Fprintln(stdout, "Staging changes...")
+		if err := git.StageAll(); err != nil {
+			return err
+		}
+	}
+
+	if actions.commit {
+		if cfg.dryRun && actions.stageAll {
+			fmt.Fprintln(stdout, "Skipping staged-change verification in --dry-run after --stage-all.")
+		} else {
+			hasStaged, err := git.HasStagedChanges()
+			if err != nil {
+				return err
+			}
+			if !hasStaged {
+				msg := "no staged changes to commit"
+				if actions.stageAll {
+					msg = fmt.Sprintf("no changes to release after staging (update %s or make code changes)", cfg.changelogPath)
+				}
+				return &preflightError{msg: msg}
+			}
+		}
+
+		fmt.Fprintln(stdout, "Committing changes...")
+		if err := git.Commit(entry.Summary, entry.Description); err != nil {
+			return err
+		}
+	}
+
+	createdTag := false
+	if actions.tag {
+		fmt.Fprintf(stdout, "Creating tag %s...\n", tag)
+		if err := git.CreateTag(tag, entry.Summary, entry.Description); err != nil {
+			return err
+		}
+		createdTag = true
+	}
+
+	if actions.pushCommit {
+		fmt.Fprintf(stdout, "Pushing HEAD to %s...\n", cfg.remote)
+		if err := git.PushHead(cfg.remote); err != nil {
+			return err
+		}
+	}
+
+	if actions.pushTag {
+		fmt.Fprintf(stdout, "Pushing tag %s to %s...\n", tag, cfg.remote)
+		if err := git.PushTag(cfg.remote, tag); err != nil {
+			if createdTag {
+				return fmt.Errorf("%w (tag %s was created locally and may need manual push/retry)", err, tag)
+			}
+			return err
+		}
+	}
+
+	if cfg.dryRun {
+		fmt.Fprintln(stdout, "Dry-run complete.")
+		return nil
+	}
+
+	fmt.Fprintf(stdout, "Release complete: %s (%s)\n", entry.Summary, tag)
+	return nil
+}
+
+func resolveChangelogPath(flagValue string, getenv func(string) string) string {
+	if strings.TrimSpace(flagValue) != "" {
+		return flagValue
+	}
+	if getenv != nil {
+		if v := strings.TrimSpace(getenv("MDRELEASE_CHANGELOG")); v != "" {
+			return v
+		}
+	}
+	return changelog.DefaultPath
+}
+
+func visitedFlags(fs *flag.FlagSet) map[string]bool {
+	out := make(map[string]bool)
+	fs.Visit(func(f *flag.Flag) {
+		out[f.Name] = true
+	})
+	return out
+}
+
+func (a releaseActions) String() string {
+	var parts []string
+	if a.stageAll {
+		parts = append(parts, "stage-all")
+	}
+	if a.commit {
+		parts = append(parts, "commit")
+	}
+	if a.tag {
+		parts = append(parts, "tag")
+	}
+	if a.pushCommit {
+		parts = append(parts, "push-commit")
+	}
+	if a.pushTag {
+		parts = append(parts, "push-tag")
+	}
+	if len(parts) == 0 {
+		return "(none)"
+	}
+	return strings.Join(parts, ", ")
+}
+
+func printRootUsage(w io.Writer) {
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintln(w, "  mdrelease [flags]        Run release (default is full release, equivalent to --all)")
+	fmt.Fprintln(w, "  mdrelease check [flags]  Validate changelog and git preconditions")
+	fmt.Fprintln(w, "  mdrelease version [flags] Print latest changelog version")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Examples:")
+	fmt.Fprintln(w, "  mdrelease")
+	fmt.Fprintln(w, "  mdrelease --all")
+	fmt.Fprintln(w, "  mdrelease --commit --tag --push")
+	fmt.Fprintln(w, "  mdrelease --tag --push-tag")
+}
