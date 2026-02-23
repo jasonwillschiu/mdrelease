@@ -58,27 +58,27 @@ func Run(args []string, stdout, stderr io.Writer) int {
 
 	if err := run(args, stdout, stderr, d); err != nil {
 		if _, isUsage := err.(*usageError); isUsage {
-			fmt.Fprintln(stderr, err.Error())
-			fmt.Fprintln(stderr)
+			_, _ = fmt.Fprintln(stderr, err.Error())
+			_, _ = fmt.Fprintln(stderr)
 			printRootUsage(stderr)
 			return ExitUsage
 		}
 
 		switch {
 		case errors.As(err, new(*changelog.ParseError)):
-			fmt.Fprintln(stderr, "Error:", err)
+			_, _ = fmt.Fprintln(stderr, "Error:", err)
 			if pe := new(changelog.ParseError); errors.As(err, &pe) {
-				fmt.Fprintf(stderr, "Expected format example in %s: %s\n", pe.Path, changelog.ExpectedFormat)
+				_, _ = fmt.Fprintf(stderr, "Expected format example in %s: %s\n", pe.Path, changelog.ExpectedFormat)
 			}
 			return ExitParse
 		case errors.As(err, new(*preflightError)):
-			fmt.Fprintln(stderr, "Error:", err)
+			_, _ = fmt.Fprintln(stderr, "Error:", err)
 			return ExitPreflight
 		case errors.As(err, new(*gitutil.GitError)):
-			fmt.Fprintln(stderr, "Error:", err)
+			_, _ = fmt.Fprintln(stderr, "Error:", err)
 			return ExitGit
 		default:
-			fmt.Fprintln(stderr, "Error:", err)
+			_, _ = fmt.Fprintln(stderr, "Error:", err)
 			return ExitGeneral
 		}
 	}
@@ -133,7 +133,7 @@ func runVersion(args []string, stdout, stderr io.Writer, d deps) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(stdout, entry.Version)
+	_, _ = fmt.Fprintln(stdout, entry.Version)
 	return nil
 }
 
@@ -162,11 +162,11 @@ func runCheck(args []string, stdout, stderr io.Writer, d deps) error {
 	}
 
 	tag := cfg.tagPrefix + entry.Version
-	fmt.Fprintf(stdout, "Release check:\n")
-	fmt.Fprintf(stdout, "  Changelog: %s\n", cfg.changelogPath)
-	fmt.Fprintf(stdout, "  Version: %s\n", entry.Version)
-	fmt.Fprintf(stdout, "  Title: %s\n", entry.Summary)
-	fmt.Fprintf(stdout, "  Tag: %s\n", tag)
+	_, _ = fmt.Fprintf(stdout, "Release check:\n")
+	_, _ = fmt.Fprintf(stdout, "  Changelog: %s\n", cfg.changelogPath)
+	_, _ = fmt.Fprintf(stdout, "  Version: %s\n", entry.Version)
+	_, _ = fmt.Fprintf(stdout, "  Title: %s\n", entry.Summary)
+	_, _ = fmt.Fprintf(stdout, "  Tag: %s\n", tag)
 
 	git := d.newGit(stdout, stderr, cfg.dryRun)
 	if err := git.EnsureRepo(); err != nil {
@@ -176,18 +176,18 @@ func runCheck(args []string, stdout, stderr io.Writer, d deps) error {
 		return err
 	}
 	if cfg.dryRun {
-		fmt.Fprintln(stdout, "  Fetch tags: skipped in --dry-run")
+		_, _ = fmt.Fprintln(stdout, "  Fetch tags: skipped in --dry-run")
 	} else {
 		if err := git.FetchTags(); err != nil {
 			return err
 		}
-		fmt.Fprintln(stdout, "  Fetch tags: ok")
+		_, _ = fmt.Fprintln(stdout, "  Fetch tags: ok")
 	}
 	if err := git.EnsureTagAbsent(tag); err != nil {
 		return &preflightError{msg: fmt.Sprintf("no new changelog version to release: %s already exists (update %s)", tag, cfg.changelogPath)}
 	}
-	fmt.Fprintln(stdout, "  Tag availability: ok")
-	fmt.Fprintln(stdout, "Check passed.")
+	_, _ = fmt.Fprintln(stdout, "  Tag availability: ok")
+	_, _ = fmt.Fprintln(stdout, "Check passed.")
 	return nil
 }
 
@@ -248,15 +248,15 @@ func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
 	}
 	tag := cfg.tagPrefix + entry.Version
 
-	fmt.Fprintln(stdout, "Release info:")
-	fmt.Fprintf(stdout, "  Changelog: %s\n", cfg.changelogPath)
-	fmt.Fprintf(stdout, "  Version: %s\n", entry.Version)
-	fmt.Fprintf(stdout, "  Title: %s\n", entry.Summary)
-	fmt.Fprintf(stdout, "  Tag: %s\n", tag)
-	fmt.Fprintf(stdout, "  Actions: %s\n", actions.String())
+	_, _ = fmt.Fprintln(stdout, "Release info:")
+	_, _ = fmt.Fprintf(stdout, "  Changelog: %s\n", cfg.changelogPath)
+	_, _ = fmt.Fprintf(stdout, "  Version: %s\n", entry.Version)
+	_, _ = fmt.Fprintf(stdout, "  Title: %s\n", entry.Summary)
+	_, _ = fmt.Fprintf(stdout, "  Tag: %s\n", tag)
+	_, _ = fmt.Fprintf(stdout, "  Actions: %s\n", actions.String())
 
 	if cfg.dryRun {
-		fmt.Fprintln(stdout, "  Mode: dry-run")
+		_, _ = fmt.Fprintln(stdout, "  Mode: dry-run")
 	}
 
 	git := d.newGit(stdout, stderr, cfg.dryRun)
@@ -284,7 +284,7 @@ func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
 	}
 
 	if actions.stageAll {
-		fmt.Fprintln(stdout, "Staging changes...")
+		_, _ = fmt.Fprintln(stdout, "Staging changes...")
 		if err := git.StageAll(); err != nil {
 			return err
 		}
@@ -292,7 +292,7 @@ func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
 
 	if actions.commit {
 		if cfg.dryRun && actions.stageAll {
-			fmt.Fprintln(stdout, "Skipping staged-change verification in --dry-run after --stage-all.")
+			_, _ = fmt.Fprintln(stdout, "Skipping staged-change verification in --dry-run after --stage-all.")
 		} else {
 			hasStaged, err := git.HasStagedChanges()
 			if err != nil {
@@ -307,7 +307,7 @@ func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
 			}
 		}
 
-		fmt.Fprintln(stdout, "Committing changes...")
+		_, _ = fmt.Fprintln(stdout, "Committing changes...")
 		if err := git.Commit(entry.Summary, entry.Description); err != nil {
 			return err
 		}
@@ -315,7 +315,7 @@ func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
 
 	createdTag := false
 	if actions.tag {
-		fmt.Fprintf(stdout, "Creating tag %s...\n", tag)
+		_, _ = fmt.Fprintf(stdout, "Creating tag %s...\n", tag)
 		if err := git.CreateTag(tag, entry.Summary, entry.Description); err != nil {
 			return err
 		}
@@ -323,14 +323,14 @@ func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
 	}
 
 	if actions.pushCommit {
-		fmt.Fprintf(stdout, "Pushing HEAD to %s...\n", cfg.remote)
+		_, _ = fmt.Fprintf(stdout, "Pushing HEAD to %s...\n", cfg.remote)
 		if err := git.PushHead(cfg.remote); err != nil {
 			return err
 		}
 	}
 
 	if actions.pushTag {
-		fmt.Fprintf(stdout, "Pushing tag %s to %s...\n", tag, cfg.remote)
+		_, _ = fmt.Fprintf(stdout, "Pushing tag %s to %s...\n", tag, cfg.remote)
 		if err := git.PushTag(cfg.remote, tag); err != nil {
 			if createdTag {
 				return fmt.Errorf("%w (tag %s was created locally and may need manual push/retry)", err, tag)
@@ -340,11 +340,11 @@ func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
 	}
 
 	if cfg.dryRun {
-		fmt.Fprintln(stdout, "Dry-run complete.")
+		_, _ = fmt.Fprintln(stdout, "Dry-run complete.")
 		return nil
 	}
 
-	fmt.Fprintf(stdout, "Release complete: %s (%s)\n", entry.Summary, tag)
+	_, _ = fmt.Fprintf(stdout, "Release complete: %s (%s)\n", entry.Summary, tag)
 	return nil
 }
 
@@ -392,14 +392,14 @@ func (a releaseActions) String() string {
 }
 
 func printRootUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  mdrelease [flags]        Run release (default is full release, equivalent to --all)")
-	fmt.Fprintln(w, "  mdrelease check [flags]  Validate changelog and git preconditions")
-	fmt.Fprintln(w, "  mdrelease version [flags] Print latest changelog version")
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Examples:")
-	fmt.Fprintln(w, "  mdrelease")
-	fmt.Fprintln(w, "  mdrelease --all")
-	fmt.Fprintln(w, "  mdrelease --commit --tag --push")
-	fmt.Fprintln(w, "  mdrelease --tag --push-tag")
+	_, _ = fmt.Fprintln(w, "Usage:")
+	_, _ = fmt.Fprintln(w, "  mdrelease [flags]        Run release (default is full release, equivalent to --all)")
+	_, _ = fmt.Fprintln(w, "  mdrelease check [flags]  Validate changelog and git preconditions")
+	_, _ = fmt.Fprintln(w, "  mdrelease version [flags] Print latest changelog version")
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, "Examples:")
+	_, _ = fmt.Fprintln(w, "  mdrelease")
+	_, _ = fmt.Fprintln(w, "  mdrelease --all")
+	_, _ = fmt.Fprintln(w, "  mdrelease --commit --tag --push")
+	_, _ = fmt.Fprintln(w, "  mdrelease --tag --push-tag")
 }

@@ -201,6 +201,6 @@ func (c *Client) runWithStreams(name string, args ...string) error {
 
 func (c *Client) printf(format string, args ...any) {
 	if c.Stdout != nil {
-		fmt.Fprintf(c.Stdout, format, args...)
+		_, _ = fmt.Fprintf(c.Stdout, format, args...)
 	}
 }

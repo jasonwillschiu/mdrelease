@@ -43,7 +43,9 @@ func ParseLatest(path string) (*Entry, error) {
 			Err:  err,
 		}
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	headerRegex := regexp.MustCompile(`^#\s*([0-9]+(?:\.[0-9]+){1,2}(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)\s*-\s*(.+)$`)
 
