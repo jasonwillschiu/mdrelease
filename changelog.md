@@ -1,3 +1,9 @@
+# 0.5.0 - Fix: Tighten tag checks and local release flow
+- Require a git remote only for push actions so local `--commit` and `--tag` flows work without `origin`.
+- Validate tag presence/absence against `refs/tags/<tag>` to avoid branch/ref name collisions.
+- Validate tag ref names before checks and preserve hard errors instead of treating all failures as "tag missing".
+- Add tests for local-only release flows and exact tag-ref behavior.
+
 # 0.4.0 - Update: Rename public module path
 - Rename the public Go module path to `github.com/jasonwillschiu/mdrelease`.
 - Update `go install` documentation to use the renamed repository path.

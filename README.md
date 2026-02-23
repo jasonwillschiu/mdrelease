@@ -35,7 +35,7 @@ go install github.com/jasonwillschiu/mdrelease@latest
 Runs the full release flow by default (equivalent to `mdrelease --all`):
 
 1. Parse latest changelog entry
-2. Validate git repo + remote
+2. Validate git repo + remote (remote required for push steps)
 3. Fetch tags
 4. Ensure the release tag does not already exist
 5. `git add -A`
@@ -112,6 +112,8 @@ mdrelease --version
 ## Notes / Failure Cases
 
 - If the tag already exists, `mdrelease` fails and tells you to update your changelog version.
+- Local-only flows (for example `--commit` or `--tag`) do not require a configured remote.
+- `--tag` without `--push-tag` checks local tag availability only; pushing tags fetches remote tags first.
 - Default full release fails if there are no changes to commit after staging (`git add -A`).
 - Default full release also requires a configured git remote named `origin` (or use `--remote <name>`).
 - `mdrelease version` prints only the version string, with errors on stderr.

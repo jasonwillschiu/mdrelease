@@ -166,6 +166,45 @@ func TestRunRelease_TagOnlyFlow(t *testing.T) {
 	}
 }
 
+func TestRunRelease_LocalCommitFlowDoesNotRequireRemote(t *testing.T) {
+	changelogPath := writeChangelog(t)
+	fg := &fakeGit{hasStaged: true}
+
+	err := run([]string{"--changelog", changelogPath, "--commit"}, &bytes.Buffer{}, &bytes.Buffer{}, deps{
+		getenv: func(string) string { return "" },
+		newGit: func(out, errOut io.Writer, dry bool) gitOps { return fg },
+	})
+	if err != nil {
+		t.Fatalf("run returned error: %v", err)
+	}
+
+	got := strings.Join(fg.calls, "|")
+	if strings.Contains(got, "EnsureRemote:") {
+		t.Fatalf("unexpected remote validation in local-only flow: %v", fg.calls)
+	}
+}
+
+func TestRunRelease_LocalTagFlowSkipsFetchAndRemoteValidation(t *testing.T) {
+	changelogPath := writeChangelog(t)
+	fg := &fakeGit{}
+
+	err := run([]string{"--changelog", changelogPath, "--tag"}, &bytes.Buffer{}, &bytes.Buffer{}, deps{
+		getenv: func(string) string { return "" },
+		newGit: func(out, errOut io.Writer, dry bool) gitOps { return fg },
+	})
+	if err != nil {
+		t.Fatalf("run returned error: %v", err)
+	}
+
+	got := strings.Join(fg.calls, "|")
+	if strings.Contains(got, "EnsureRemote:") || strings.Contains(got, "FetchTags") {
+		t.Fatalf("unexpected remote preflight in local tag flow: %v", fg.calls)
+	}
+	if !strings.Contains(got, "EnsureTagAbsent:v1.2.3") {
+		t.Fatalf("expected local tag absence check, calls: %v", fg.calls)
+	}
+}
+
 func TestRunRelease_FailsWhenNoChangesAfterStageAll(t *testing.T) {
 	changelogPath := writeChangelog(t)
 	fg := &fakeGit{hasStaged: false}

@@ -17,6 +17,8 @@ This repository is a small Go CLI (`mdrelease`) for changelog-driven releases.
 Keep new code in `internal/` packages unless it must be part of the executable entrypoint.
 
 - Keep root CLI aliases `--help` and `--version` aligned with root usage output and `version` subcommand behavior.
+- Require a git remote only for push actions; local-only release actions must work without `origin`.
+- Tag presence/absence checks must target `refs/tags/<tag>` (do not use ref-ambiguous checks).
 
 ## Build, Test, and Development Commands
 

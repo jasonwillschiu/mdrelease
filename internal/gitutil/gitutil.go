@@ -2,6 +2,7 @@ package gitutil
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -70,16 +71,67 @@ func (c *Client) FetchTags() error {
 }
 
 func (c *Client) EnsureTagAbsent(tag string) error {
-	err := c.run("git", "rev-parse", "--verify", "--quiet", tag)
+	ref := "refs/tags/" + tag
+	if err := c.ensureValidRef(ref); err != nil {
+		return &GitError{Op: "validate tag absence", Err: err}
+	}
+	err := c.runQuietAllowNotFound("git", "show-ref", "--verify", "--quiet", ref)
 	if err == nil {
 		return &GitError{Op: "validate tag absence", Err: fmt.Errorf("tag %s already exists", tag)}
+	}
+	var nf *notFoundError
+	if errors.As(err, &nf) {
+		return nil
+	}
+	return &GitError{Op: "validate tag absence", Err: err}
+}
+
+func (c *Client) EnsureTagPresent(tag string) error {
+	ref := "refs/tags/" + tag
+	if err := c.ensureValidRef(ref); err != nil {
+		return &GitError{Op: "validate local tag", Err: err}
+	}
+	err := c.runQuietAllowNotFound("git", "show-ref", "--verify", "--quiet", ref)
+	if err != nil {
+		var nf *notFoundError
+		if errors.As(err, &nf) {
+			return &GitError{Op: "validate local tag", Err: fmt.Errorf("tag %s does not exist locally", tag)}
+		}
+		return &GitError{Op: "validate local tag", Err: err}
 	}
 	return nil
 }
 
-func (c *Client) EnsureTagPresent(tag string) error {
-	if err := c.run("git", "rev-parse", "--verify", "--quiet", tag); err != nil {
-		return &GitError{Op: "validate local tag", Err: fmt.Errorf("tag %s does not exist locally", tag)}
+func (c *Client) ensureValidRef(ref string) error {
+	if err := c.run("git", "check-ref-format", ref); err != nil {
+		return fmt.Errorf("invalid ref name %q", ref)
+	}
+	return nil
+}
+
+type notFoundError struct {
+	name string
+	args []string
+}
+
+func (e *notFoundError) Error() string {
+	return fmt.Sprintf("%s %s: not found", e.name, strings.Join(e.args, " "))
+}
+
+func (c *Client) runQuietAllowNotFound(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	var stderr bytes.Buffer
+	cmd.Stdout = io.Discard
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return &notFoundError{name: name, args: args}
+		}
+		if stderr.Len() > 0 {
+			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
+		return err
 	}
 	return nil
 }

@@ -25,6 +25,8 @@
 - Release/check/version flows are orchestrated in `internal/app`.
 - Root CLI aliases `--help` and `--version` must stay consistent with root usage + `version` subcommand behavior.
 - Git interactions go through `internal/gitutil` helpers.
+- Only require `origin`/`--remote` validation for push actions; local commit/tag flows should remain usable offline.
+- Tag existence checks must validate `refs/tags/<tag>` specifically (avoid branch/ref name collisions).
 - Changelog parsing rules live in `internal/changelog`; keep parser behavior covered by tests.
 
 ## Project Structure

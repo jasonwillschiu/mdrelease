@@ -283,14 +283,19 @@ func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
 	if err := git.EnsureRepo(); err != nil {
 		return err
 	}
-	if err := git.EnsureRemote(cfg.remote); err != nil {
-		return err
+	needsRemote := actions.pushCommit || actions.pushTag
+	if needsRemote {
+		if err := git.EnsureRemote(cfg.remote); err != nil {
+			return err
+		}
 	}
 
-	// Tag creation requires a remote tag check (fetch tags first in normal mode).
+	// When pushing tags, refresh remote tags before validating the release tag is unused.
 	if actions.tag {
-		if err := git.FetchTags(); err != nil {
-			return err
+		if actions.pushTag {
+			if err := git.FetchTags(); err != nil {
+				return err
+			}
 		}
 		if err := git.EnsureTagAbsent(tag); err != nil {
 			return &preflightError{msg: fmt.Sprintf("no new changelog version to release: %s already exists (update %s)", tag, cfg.changelogPath)}
