@@ -1,3 +1,8 @@
+# 0.3.0 - Add: Top-level help/version flags
+- Add root `--help` (`-h`, `-help`) support that prints usage and exits successfully.
+- Add root `--version` (`-version`) alias for the existing `version` subcommand.
+- Add CLI tests covering the new top-level flag behavior.
+
 # 0.2.0 - Update: Root entrypoint + public module path
 - Move the CLI entrypoint to repository-root `main.go` for simpler `go install`.
 - Align the Go module path with the public GitHub repository (`mdrelease-com`).

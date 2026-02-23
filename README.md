@@ -52,6 +52,13 @@ Validates changelog parsing and git preconditions without creating commits or ta
 
 Prints only the latest changelog version (stdout only), which is safe for scripting.
 
+## Global Convenience Flags
+
+These work at the top level (without a subcommand):
+
+- `--help` (also `-h`, `-help`) prints root usage and exits successfully
+- `--version` (also `-version`) aliases `mdrelease version`
+
 ## Common Flags
 
 - `--changelog` path to changelog file (default `changelog.md`)
@@ -94,6 +101,12 @@ mdrelease --tag --push-tag
 
 # Use a custom changelog file
 mdrelease --changelog release-notes.md
+
+# Print root usage
+mdrelease --help
+
+# Print latest version (alias for `mdrelease version`)
+mdrelease --version
 ```
 
 ## Notes / Failure Cases
@@ -102,3 +115,4 @@ mdrelease --changelog release-notes.md
 - Default full release fails if there are no changes to commit after staging (`git add -A`).
 - Default full release also requires a configured git remote named `origin` (or use `--remote <name>`).
 - `mdrelease version` prints only the version string, with errors on stderr.
+- `mdrelease --version` is a top-level alias for `mdrelease version`.

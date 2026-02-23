@@ -23,6 +23,7 @@
 ## Hard Invariants
 - `changelog.md` newest entry must be first and match `# <version> - <summary>`.
 - Release/check/version flows are orchestrated in `internal/app`.
+- Root CLI aliases `--help` and `--version` must stay consistent with root usage + `version` subcommand behavior.
 - Git interactions go through `internal/gitutil` helpers.
 - Changelog parsing rules live in `internal/changelog`; keep parser behavior covered by tests.
 

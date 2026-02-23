@@ -74,6 +74,34 @@ func TestResolveChangelogPath_PrefersFlagThenEnvThenDefault(t *testing.T) {
 	}
 }
 
+func TestRun_HelpFlagPrintsRootUsage(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"--help"}, &stdout, &stderr)
+	if code != ExitOK {
+		t.Fatalf("exit code = %d, want %d", code, ExitOK)
+	}
+	if !strings.Contains(stdout.String(), "Usage:") {
+		t.Fatalf("stdout missing usage, got: %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr not empty: %q", stderr.String())
+	}
+}
+
+func TestRun_VersionFlagAliasesVersionCommand(t *testing.T) {
+	changelogPath := writeChangelog(t)
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"--version", "--changelog", changelogPath}, &stdout, &stderr)
+	if code != ExitOK {
+		t.Fatalf("exit code = %d, want %d (stderr: %s)", code, ExitOK, stderr.String())
+	}
+	if got := strings.TrimSpace(stdout.String()); got != "1.2.3" {
+		t.Fatalf("stdout = %q, want %q", got, "1.2.3")
+	}
+}
+
 func TestRunRelease_DefaultIsAll(t *testing.T) {
 	changelogPath := writeChangelog(t)
 	fg := &fakeGit{hasStaged: true}

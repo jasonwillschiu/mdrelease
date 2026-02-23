@@ -14,6 +14,8 @@ This repository is a small Go CLI (`mdrelease`) for changelog-driven releases.
 
 Keep new code in `internal/` packages unless it must be part of the executable entrypoint.
 
+- Keep root CLI aliases `--help` and `--version` aligned with root usage output and `version` subcommand behavior.
+
 ## Build, Test, and Development Commands
 
 Use `task` for the standard workflow:

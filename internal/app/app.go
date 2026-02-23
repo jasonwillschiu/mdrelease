@@ -86,6 +86,16 @@ func Run(args []string, stdout, stderr io.Writer) int {
 }
 
 func run(args []string, stdout, stderr io.Writer, d deps) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "-h", "-help", "--help":
+			printRootUsage(stdout)
+			return nil
+		case "-version", "--version":
+			return runVersion(args[1:], stdout, stderr, d)
+		}
+	}
+
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		switch args[0] {
 		case "version":
@@ -122,6 +132,9 @@ func runVersion(args []string, stdout, stderr io.Writer, d deps) error {
 	fs.StringVar(&changelogFlag, "changelog", "", "Path to changelog file (default: changelog.md)")
 
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
 		return &usageError{msg: err.Error()}
 	}
 	if fs.NArg() != 0 {
@@ -149,6 +162,9 @@ func runCheck(args []string, stdout, stderr io.Writer, d deps) error {
 	fs.BoolVar(&cfg.dryRun, "dry-run", false, "Print planned checks without running mutating steps (skips fetch --tags)")
 
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
 		return &usageError{msg: err.Error()}
 	}
 	if fs.NArg() != 0 {
@@ -214,6 +230,10 @@ func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
 	fs.BoolVar(&actions.pushTag, "push-tag", false, "Push version tag to remote")
 
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			printRootUsage(stdout)
+			return nil
+		}
 		return &usageError{msg: err.Error()}
 	}
 	if fs.NArg() != 0 {
