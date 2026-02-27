@@ -7,8 +7,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/jasonwillschiu/mdrelease/internal/changelog"
 )
 
 type fakeGit struct {
@@ -354,6 +357,52 @@ func TestRunRelease_PushTagFailureMentionsLocalTag(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "created locally") {
 		t.Fatalf("missing partial success guidance: %v", err)
+	}
+}
+
+func TestReadmeInstallUsesLatest(t *testing.T) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
+
+	goModBytes, err := os.ReadFile(filepath.Join(repoRoot, "go.mod"))
+	if err != nil {
+		t.Fatalf("read go.mod: %v", err)
+	}
+
+	modulePath := ""
+	for _, line := range strings.Split(string(goModBytes), "\n") {
+		if strings.HasPrefix(line, "module ") {
+			modulePath = strings.TrimSpace(strings.TrimPrefix(line, "module "))
+			break
+		}
+	}
+	if modulePath == "" {
+		t.Fatal("module path not found in go.mod")
+	}
+
+	readmeBytes, err := os.ReadFile(filepath.Join(repoRoot, "README.md"))
+	if err != nil {
+		t.Fatalf("read README.md: %v", err)
+	}
+	readme := string(readmeBytes)
+	entry, err := changelog.ParseLatest(filepath.Join(repoRoot, "changelog.md"))
+	if err != nil {
+		t.Fatalf("parse changelog.md: %v", err)
+	}
+	version := entry.Version
+	if !strings.HasPrefix(version, "v") {
+		version = "v" + version
+	}
+
+	expected := "go install " + modulePath + "@" + version
+	if !strings.Contains(readme, expected) {
+		t.Fatalf("README.md install command must pin latest changelog version, expected to find %q", expected)
+	}
+	if strings.Contains(readme, "go install "+modulePath+"@latest") {
+		t.Fatalf("README.md install command must not use @latest for module %q", modulePath)
 	}
 }
 

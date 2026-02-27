@@ -1,3 +1,6 @@
+# 0.7.1 - Update: README.md go install uses pinned version
+- pinned to v0.7.1 for this release
+
 # 0.7.0 - Update: Separate tool and repo versions
 - Make `mdrelease --version` print the installed CLI version in the format `mdrelease version vX.Y.Z`.
 - Embed `changelog.md` into the binary at build time and derive the CLI version from its latest entry.

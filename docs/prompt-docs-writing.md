@@ -88,6 +88,8 @@ Base all updates on:
 - Major changes → Expand relevant sections with details
 - Minor changes → Add 1-2 line summary in appropriate section
 - This is the **canonical detailed reference** — CLAUDE.md and AGENTS.md point here
+- Install section rule: pin `go install` to `go install <module>@v<latest-changelog-version>`
+- After writing `changelog.md`, update README install command to that new version so installs resolve predictably with Go module cache
 
 ---
 
@@ -255,9 +257,11 @@ Datastar is a lightweight hypermedia framework for SSE-based UI updates.
    → CLAUDE.md: Only add what LLMs can't infer (invariants, non-standard tools, key paths)
    → AGENTS.md: Terse bullet constraints only
    → changelog: New entry at top with 1-5 bullets
-4. Calculate version bump → Apply SemVer decision tree
-5. Output results → Show updates, summarize, state version bump
-6. Stop → Developer handles git operations
+4. Post-changelog sync:
+   → Re-open README install section and set it to `go install <module>@v<latest-changelog-version>`
+5. Calculate version bump → Apply SemVer decision tree
+6. Output results → Show updates, summarize, state version bump
+7. Stop → Developer handles git operations
 ```
 
 ---
