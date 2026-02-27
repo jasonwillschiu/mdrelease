@@ -26,6 +26,8 @@
 - Root CLI aliases `--help` and `--version` must stay consistent with root usage + `version` subcommand behavior.
 - Git interactions go through `internal/gitutil` helpers.
 - Only require `origin`/`--remote` validation for push actions; local commit/tag flows should remain usable offline.
+- Push actions must sync from remote before push (`git fetch --tags --prune` + `git pull --ff-only`).
+- `--force-retag` must delete existing release tags before recreating/pushing (remote when `--push-tag`, local when creating tags).
 - Tag existence checks must validate `refs/tags/<tag>` specifically (avoid branch/ref name collisions).
 - Changelog parsing rules live in `internal/changelog`; keep parser behavior covered by tests.
 

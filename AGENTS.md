@@ -18,6 +18,8 @@ Keep new code in `internal/` packages unless it must be part of the executable e
 
 - Keep root CLI aliases `--help` and `--version` aligned with root usage output and `version` subcommand behavior.
 - Require a git remote only for push actions; local-only release actions must work without `origin`.
+- For push actions, sync remote state before push (`fetch --tags --prune` then `pull --ff-only`) and fail if pull is not fast-forward.
+- `--force-retag` must support deleting/replacing existing release tags (remote when pushing tags, local when recreating tags).
 - Tag presence/absence checks must target `refs/tags/<tag>` (do not use ref-ambiguous checks).
 
 ## Build, Test, and Development Commands

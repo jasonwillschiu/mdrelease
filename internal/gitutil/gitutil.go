@@ -70,6 +70,28 @@ func (c *Client) FetchTags() error {
 	return nil
 }
 
+func (c *Client) FetchRemote(remote string) error {
+	if c.DryRun {
+		c.printf("[dry-run] git fetch --tags --prune %s\n", remote)
+		return nil
+	}
+	if err := c.runWithStreams("git", "fetch", "--tags", "--prune", remote); err != nil {
+		return &GitError{Op: "fetch remote refs", Err: err}
+	}
+	return nil
+}
+
+func (c *Client) PullFFOnly(remote string) error {
+	if c.DryRun {
+		c.printf("[dry-run] git pull --ff-only %s\n", remote)
+		return nil
+	}
+	if err := c.runWithStreams("git", "pull", "--ff-only", remote); err != nil {
+		return &GitError{Op: "pull fast-forward", Err: err}
+	}
+	return nil
+}
+
 func (c *Client) EnsureTagAbsent(tag string) error {
 	ref := "refs/tags/" + tag
 	if err := c.ensureValidRef(ref); err != nil {
@@ -98,6 +120,60 @@ func (c *Client) EnsureTagPresent(tag string) error {
 			return &GitError{Op: "validate local tag", Err: fmt.Errorf("tag %s does not exist locally", tag)}
 		}
 		return &GitError{Op: "validate local tag", Err: err}
+	}
+	return nil
+}
+
+func (c *Client) HasLocalTag(tag string) (bool, error) {
+	ref := "refs/tags/" + tag
+	if err := c.ensureValidRef(ref); err != nil {
+		return false, &GitError{Op: "check local tag", Err: err}
+	}
+	err := c.runQuietAllowNotFound("git", "show-ref", "--verify", "--quiet", ref)
+	if err != nil {
+		var nf *notFoundError
+		if errors.As(err, &nf) {
+			return false, nil
+		}
+		return false, &GitError{Op: "check local tag", Err: err}
+	}
+	return true, nil
+}
+
+func (c *Client) HasRemoteTag(remote, tag string) (bool, error) {
+	ref := "refs/tags/" + tag
+	if err := c.ensureValidRef(ref); err != nil {
+		return false, &GitError{Op: "check remote tag", Err: err}
+	}
+	out, err := c.output("git", "ls-remote", "--tags", "--refs", remote, ref)
+	if err != nil {
+		return false, &GitError{Op: "check remote tag", Err: err}
+	}
+	return strings.TrimSpace(out) != "", nil
+}
+
+func (c *Client) DeleteLocalTag(tag string) error {
+	if c.DryRun {
+		c.printf("[dry-run] git tag -d %s\n", tag)
+		return nil
+	}
+	if err := c.runWithStreams("git", "tag", "-d", tag); err != nil {
+		return &GitError{Op: "delete local tag", Err: err}
+	}
+	return nil
+}
+
+func (c *Client) DeleteRemoteTag(remote, tag string) error {
+	ref := "refs/tags/" + tag
+	if err := c.ensureValidRef(ref); err != nil {
+		return &GitError{Op: "delete remote tag", Err: err}
+	}
+	if c.DryRun {
+		c.printf("[dry-run] git push %s :%s\n", remote, ref)
+		return nil
+	}
+	if err := c.runWithStreams("git", "push", remote, ":"+ref); err != nil {
+		return &GitError{Op: "delete remote tag", Err: err}
 	}
 	return nil
 }

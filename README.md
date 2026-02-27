@@ -36,13 +36,14 @@ Runs the full release flow by default (equivalent to `mdrelease --all`):
 
 1. Parse latest changelog entry
 2. Validate git repo + remote (remote required for push steps)
-3. Fetch tags
-4. Ensure the release tag does not already exist
-5. `git add -A`
-6. Commit using changelog summary/body
-7. Create annotated tag
-8. Push `HEAD`
-9. Push tag
+3. Fetch remote refs and tags
+4. Pull latest commits with `--ff-only` (fails fast if not a fast-forward)
+5. Ensure the release tag does not already exist
+6. `git add -A`
+7. Commit using changelog summary/body
+8. Create annotated tag
+9. Push `HEAD`
+10. Push tag
 
 ### `mdrelease check`
 
@@ -83,6 +84,7 @@ Use these to customize the release flow instead of the default full release:
 - `--push-commit`
 - `--push-tag`
 - `--push` alias for `--push-commit --push-tag`
+- `--force-retag` overwrite an existing release tag by deleting and recreating it (local and remote when pushing tags)
 
 Examples:
 
@@ -99,6 +101,9 @@ mdrelease --commit --tag --push
 # Tag-only flow (no commit)
 mdrelease --tag --push-tag
 
+# Force overwrite an existing release tag (delete/recreate + push)
+mdrelease --tag --push-tag --force-retag
+
 # Use a custom changelog file
 mdrelease --changelog release-notes.md
 
@@ -113,7 +118,9 @@ mdrelease --version
 
 - If the tag already exists, `mdrelease` fails and tells you to update your changelog version.
 - Local-only flows (for example `--commit` or `--tag`) do not require a configured remote.
-- `--tag` without `--push-tag` checks local tag availability only; pushing tags fetches remote tags first.
+- Push flows fetch remote refs/tags and run `git pull --ff-only` before any push step.
+- `--tag` without `--push-tag` checks local tag availability only.
+- `--force-retag` allows reusing an existing version tag by deleting prior local/remote tags as needed before push.
 - Default full release fails if there are no changes to commit after staging (`git add -A`).
 - Default full release also requires a configured git remote named `origin` (or use `--remote <name>`).
 - `mdrelease version` prints only the version string, with errors on stderr.

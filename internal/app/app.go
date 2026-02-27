@@ -25,8 +25,14 @@ type gitOps interface {
 	EnsureRepo() error
 	EnsureRemote(string) error
 	FetchTags() error
+	FetchRemote(string) error
+	PullFFOnly(string) error
 	EnsureTagAbsent(string) error
 	EnsureTagPresent(string) error
+	HasLocalTag(string) (bool, error)
+	HasRemoteTag(string, string) (bool, error)
+	DeleteLocalTag(string) error
+	DeleteRemoteTag(string, string) error
 	StageAll() error
 	HasStagedChanges() (bool, error)
 	Commit(string, string) error
@@ -215,6 +221,7 @@ func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
 	var changelogFlag string
 	var all bool
 	var push bool
+	var forceRetag bool
 	var actions releaseActions
 
 	fs.StringVar(&changelogFlag, "changelog", "", "Path to changelog file (default: changelog.md)")
@@ -228,6 +235,7 @@ func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
 	fs.BoolVar(&push, "push", false, "Push commit and tag (alias for --push-commit --push-tag)")
 	fs.BoolVar(&actions.pushCommit, "push-commit", false, "Push HEAD to remote")
 	fs.BoolVar(&actions.pushTag, "push-tag", false, "Push version tag to remote")
+	fs.BoolVar(&forceRetag, "force-retag", false, "Overwrite an existing release tag by deleting and recreating it locally/remotely as needed")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -288,17 +296,55 @@ func runRelease(args []string, stdout, stderr io.Writer, d deps) error {
 		if err := git.EnsureRemote(cfg.remote); err != nil {
 			return err
 		}
+		if err := git.FetchRemote(cfg.remote); err != nil {
+			return err
+		}
+		if err := git.PullFFOnly(cfg.remote); err != nil {
+			return err
+		}
 	}
 
-	// When pushing tags, refresh remote tags before validating the release tag is unused.
 	if actions.tag {
-		if actions.pushTag {
-			if err := git.FetchTags(); err != nil {
+		if forceRetag {
+			if actions.pushTag {
+				hasRemoteTag, err := git.HasRemoteTag(cfg.remote, tag)
+				if err != nil {
+					return err
+				}
+				if hasRemoteTag {
+					_, _ = fmt.Fprintf(stdout, "Deleting remote tag %s from %s...\n", tag, cfg.remote)
+					if err := git.DeleteRemoteTag(cfg.remote, tag); err != nil {
+						return err
+					}
+				}
+			}
+			hasLocalTag, err := git.HasLocalTag(tag)
+			if err != nil {
 				return err
 			}
+			if hasLocalTag {
+				_, _ = fmt.Fprintf(stdout, "Deleting local tag %s...\n", tag)
+				if err := git.DeleteLocalTag(tag); err != nil {
+					return err
+				}
+			}
+		} else {
+			if err := git.EnsureTagAbsent(tag); err != nil {
+				return &preflightError{msg: fmt.Sprintf("no new changelog version to release: %s already exists (update %s)", tag, cfg.changelogPath)}
+			}
 		}
-		if err := git.EnsureTagAbsent(tag); err != nil {
-			return &preflightError{msg: fmt.Sprintf("no new changelog version to release: %s already exists (update %s)", tag, cfg.changelogPath)}
+	}
+
+	if forceRetag && actions.pushTag && !actions.tag {
+		hasRemoteTag, err := git.HasRemoteTag(cfg.remote, tag)
+		if err != nil {
+			return err
+		}
+		if hasRemoteTag {
+			_, _ = fmt.Fprintf(stdout, "Deleting remote tag %s from %s...\n", tag, cfg.remote)
+			if err := git.DeleteRemoteTag(cfg.remote, tag); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -427,4 +473,5 @@ func printRootUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  mdrelease --all")
 	_, _ = fmt.Fprintln(w, "  mdrelease --commit --tag --push")
 	_, _ = fmt.Fprintln(w, "  mdrelease --tag --push-tag")
+	_, _ = fmt.Fprintln(w, "  mdrelease --tag --push-tag --force-retag")
 }

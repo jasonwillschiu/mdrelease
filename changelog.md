@@ -1,3 +1,8 @@
+# 0.6.0 - Add: Sync pushes and force retag
+- Sync remote state before any push flow by fetching refs/tags and requiring a fast-forward-only pull.
+- Add `--force-retag` to delete and recreate release tags, including remote tag replacement in push-tag flows.
+- Update release usage/docs and expand tests for sync order and force-retag behavior.
+
 # 0.5.0 - Fix: Tighten tag checks and local release flow
 - Require a git remote only for push actions so local `--commit` and `--tag` flows work without `origin`.
 - Validate tag presence/absence against `refs/tags/<tag>` to avoid branch/ref name collisions.

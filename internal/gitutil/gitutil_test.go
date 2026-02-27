@@ -42,6 +42,77 @@ func TestEnsureTagAbsent_InvalidRefReturnsError(t *testing.T) {
 	}
 }
 
+func TestHasRemoteTagAndDeleteRemoteTag(t *testing.T) {
+	repo := initRepo(t)
+	remoteRoot := t.TempDir()
+	remote := filepath.Join(remoteRoot, "origin.git")
+	runGit(t, remoteRoot, "init", "--bare", remote)
+
+	runGit(t, repo, "remote", "add", "origin", remote)
+	runGit(t, repo, "push", "-u", "origin", "HEAD")
+	runGit(t, repo, "tag", "v1.2.3")
+	runGit(t, repo, "push", "origin", "v1.2.3")
+
+	c := NewClient(&bytes.Buffer{}, &bytes.Buffer{}, false)
+	if err := withDir(repo, func() error {
+		ok, err := c.HasRemoteTag("origin", "v1.2.3")
+		if err != nil {
+			return err
+		}
+		if !ok {
+			t.Fatal("expected remote tag to exist")
+		}
+		return c.DeleteRemoteTag("origin", "v1.2.3")
+	}); err != nil {
+		t.Fatalf("remote tag delete flow failed: %v", err)
+	}
+
+	if err := withDir(repo, func() error {
+		ok, err := c.HasRemoteTag("origin", "v1.2.3")
+		if err != nil {
+			return err
+		}
+		if ok {
+			t.Fatal("expected remote tag to be deleted")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("remote tag existence check failed: %v", err)
+	}
+}
+
+func TestHasLocalTagAndDeleteLocalTag(t *testing.T) {
+	repo := initRepo(t)
+	runGit(t, repo, "tag", "v1.2.3")
+	c := NewClient(&bytes.Buffer{}, &bytes.Buffer{}, false)
+
+	if err := withDir(repo, func() error {
+		ok, err := c.HasLocalTag("v1.2.3")
+		if err != nil {
+			return err
+		}
+		if !ok {
+			t.Fatal("expected local tag to exist")
+		}
+		return c.DeleteLocalTag("v1.2.3")
+	}); err != nil {
+		t.Fatalf("local tag delete flow failed: %v", err)
+	}
+
+	if err := withDir(repo, func() error {
+		ok, err := c.HasLocalTag("v1.2.3")
+		if err != nil {
+			return err
+		}
+		if ok {
+			t.Fatal("expected local tag to be deleted")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("local tag existence check failed: %v", err)
+	}
+}
+
 func initRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()

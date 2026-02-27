@@ -17,6 +17,8 @@ type fakeGit struct {
 	ensureTagAbsentErr  error
 	ensureTagPresentErr error
 	pushTagErr          error
+	hasLocalTag         bool
+	hasRemoteTag        bool
 }
 
 func (f *fakeGit) EnsureRepo() error { f.calls = append(f.calls, "EnsureRepo"); return nil }
@@ -25,6 +27,14 @@ func (f *fakeGit) EnsureRemote(remote string) error {
 	return nil
 }
 func (f *fakeGit) FetchTags() error { f.calls = append(f.calls, "FetchTags"); return nil }
+func (f *fakeGit) FetchRemote(remote string) error {
+	f.calls = append(f.calls, "FetchRemote:"+remote)
+	return nil
+}
+func (f *fakeGit) PullFFOnly(remote string) error {
+	f.calls = append(f.calls, "PullFFOnly:"+remote)
+	return nil
+}
 func (f *fakeGit) EnsureTagAbsent(tag string) error {
 	f.calls = append(f.calls, "EnsureTagAbsent:"+tag)
 	return f.ensureTagAbsentErr
@@ -32,6 +42,22 @@ func (f *fakeGit) EnsureTagAbsent(tag string) error {
 func (f *fakeGit) EnsureTagPresent(tag string) error {
 	f.calls = append(f.calls, "EnsureTagPresent:"+tag)
 	return f.ensureTagPresentErr
+}
+func (f *fakeGit) HasLocalTag(tag string) (bool, error) {
+	f.calls = append(f.calls, "HasLocalTag:"+tag)
+	return f.hasLocalTag, nil
+}
+func (f *fakeGit) HasRemoteTag(remote, tag string) (bool, error) {
+	f.calls = append(f.calls, "HasRemoteTag:"+remote+":"+tag)
+	return f.hasRemoteTag, nil
+}
+func (f *fakeGit) DeleteLocalTag(tag string) error {
+	f.calls = append(f.calls, "DeleteLocalTag:"+tag)
+	return nil
+}
+func (f *fakeGit) DeleteRemoteTag(remote, tag string) error {
+	f.calls = append(f.calls, "DeleteRemoteTag:"+remote+":"+tag)
+	return nil
 }
 func (f *fakeGit) StageAll() error { f.calls = append(f.calls, "StageAll"); return nil }
 func (f *fakeGit) HasStagedChanges() (bool, error) {
@@ -118,7 +144,8 @@ func TestRunRelease_DefaultIsAll(t *testing.T) {
 	wantOrder := []string{
 		"EnsureRepo",
 		"EnsureRemote:origin",
-		"FetchTags",
+		"FetchRemote:origin",
+		"PullFFOnly:origin",
 		"EnsureTagAbsent:v1.2.3",
 		"StageAll",
 		"HasStagedChanges",
@@ -197,11 +224,78 @@ func TestRunRelease_LocalTagFlowSkipsFetchAndRemoteValidation(t *testing.T) {
 	}
 
 	got := strings.Join(fg.calls, "|")
-	if strings.Contains(got, "EnsureRemote:") || strings.Contains(got, "FetchTags") {
+	if strings.Contains(got, "EnsureRemote:") || strings.Contains(got, "FetchRemote:") || strings.Contains(got, "PullFFOnly:") {
 		t.Fatalf("unexpected remote preflight in local tag flow: %v", fg.calls)
 	}
 	if !strings.Contains(got, "EnsureTagAbsent:v1.2.3") {
 		t.Fatalf("expected local tag absence check, calls: %v", fg.calls)
+	}
+}
+
+func TestRunRelease_ForceRetagDeletesRemoteAndLocalBeforeCreate(t *testing.T) {
+	changelogPath := writeChangelog(t)
+	fg := &fakeGit{
+		hasStaged:    true,
+		hasLocalTag:  true,
+		hasRemoteTag: true,
+	}
+
+	err := run([]string{"--changelog", changelogPath, "--all", "--force-retag"}, &bytes.Buffer{}, &bytes.Buffer{}, deps{
+		getenv: func(string) string { return "" },
+		newGit: func(out, errOut io.Writer, dry bool) gitOps { return fg },
+	})
+	if err != nil {
+		t.Fatalf("run returned error: %v", err)
+	}
+
+	wantOrder := []string{
+		"EnsureRepo",
+		"EnsureRemote:origin",
+		"FetchRemote:origin",
+		"PullFFOnly:origin",
+		"HasRemoteTag:origin:v1.2.3",
+		"DeleteRemoteTag:origin:v1.2.3",
+		"HasLocalTag:v1.2.3",
+		"DeleteLocalTag:v1.2.3",
+		"StageAll",
+		"HasStagedChanges",
+		"Commit:Release title",
+		"CreateTag:v1.2.3",
+		"PushHead:origin",
+		"PushTag:origin:v1.2.3",
+	}
+	if got := strings.Join(fg.calls, "|"); got != strings.Join(wantOrder, "|") {
+		t.Fatalf("call order mismatch:\n got: %v\nwant: %v", fg.calls, wantOrder)
+	}
+}
+
+func TestRunRelease_ForceRetagPushTagOnlyDeletesRemoteTag(t *testing.T) {
+	changelogPath := writeChangelog(t)
+	fg := &fakeGit{
+		hasLocalTag:  true,
+		hasRemoteTag: true,
+	}
+
+	err := run([]string{"--changelog", changelogPath, "--push-tag", "--force-retag"}, &bytes.Buffer{}, &bytes.Buffer{}, deps{
+		getenv: func(string) string { return "" },
+		newGit: func(out, errOut io.Writer, dry bool) gitOps { return fg },
+	})
+	if err != nil {
+		t.Fatalf("run returned error: %v", err)
+	}
+
+	wantOrder := []string{
+		"EnsureRepo",
+		"EnsureRemote:origin",
+		"FetchRemote:origin",
+		"PullFFOnly:origin",
+		"HasRemoteTag:origin:v1.2.3",
+		"DeleteRemoteTag:origin:v1.2.3",
+		"EnsureTagPresent:v1.2.3",
+		"PushTag:origin:v1.2.3",
+	}
+	if got := strings.Join(fg.calls, "|"); got != strings.Join(wantOrder, "|") {
+		t.Fatalf("call order mismatch:\n got: %v\nwant: %v", fg.calls, wantOrder)
 	}
 }
 
