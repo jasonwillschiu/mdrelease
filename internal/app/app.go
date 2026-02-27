@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/jasonwillschiu/mdrelease/internal/changelog"
@@ -168,31 +167,8 @@ func runRepoVersion(args []string, stdout, stderr io.Writer, d deps) error {
 	if err != nil {
 		return err
 	}
-	repoName, err := repoNameFromWorkingDir(d.getwd)
-	if err != nil {
-		return err
-	}
-	repoVersion := entry.Version
-	if !strings.HasPrefix(repoVersion, "v") {
-		repoVersion = "v" + repoVersion
-	}
-	_, _ = fmt.Fprintf(stdout, "%s %s\n", repoName, repoVersion)
+	_, _ = fmt.Fprintf(stdout, "%s\n", entry.Version)
 	return nil
-}
-
-func repoNameFromWorkingDir(getwd func() (string, error)) (string, error) {
-	if getwd == nil {
-		return "", fmt.Errorf("determine repo name: no working-directory provider")
-	}
-	wd, err := getwd()
-	if err != nil {
-		return "", fmt.Errorf("determine repo name: %w", err)
-	}
-	name := filepath.Base(filepath.Clean(wd))
-	if name == "." || name == string(filepath.Separator) || name == "" {
-		return "", fmt.Errorf("determine repo name: invalid working directory %q", wd)
-	}
-	return name, nil
 }
 
 func runCheck(args []string, stdout, stderr io.Writer, d deps) error {
@@ -505,7 +481,9 @@ func printRootUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "Usage:")
 	_, _ = fmt.Fprintln(w, "  mdrelease [flags]        Run release (default is full release, equivalent to --all)")
 	_, _ = fmt.Fprintln(w, "  mdrelease check [flags]  Validate changelog and git preconditions")
-	_, _ = fmt.Fprintln(w, "  mdrelease version [flags] Print [repo-folder] v<latest-changelog-version>")
+	_, _ = fmt.Fprintln(w, "  mdrelease version [flags] Print <latest-changelog-version>")
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintf(w, "Installed mdrelease version: %s\n", ToolVersion)
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Global flags:")
 	_, _ = fmt.Fprintln(w, "  --help, -h, -help        Print this usage")

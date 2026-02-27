@@ -25,7 +25,8 @@
 - Release/check/version flows are orchestrated in `internal/app`.
 - Root CLI aliases `--help` and `--version` must stay consistent with root usage + `version` subcommand behavior.
 - `mdrelease --version` must report the installed CLI version; it is derived from embedded `changelog.md` at build time.
-- `mdrelease version` must report `[repo-folder] v<latest-changelog-version>` using the working-directory basename.
+- `mdrelease version` must report `<latest-changelog-version>` as plain semver (no repo name or `v` prefix).
+- Root help output must include the installed mdrelease version string.
 - Git interactions go through `internal/gitutil` helpers.
 - Only require `origin`/`--remote` validation for push actions; local commit/tag flows should remain usable offline.
 - Push actions must sync from remote before push (`git fetch --tags --prune` + `git pull --ff-only`).

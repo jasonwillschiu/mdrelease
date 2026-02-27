@@ -116,8 +116,11 @@ func TestRun_HelpFlagPrintsRootUsage(t *testing.T) {
 	if !strings.Contains(stdout.String(), "--version, -version") {
 		t.Fatalf("stdout missing --version help details, got: %q", stdout.String())
 	}
-	if !strings.Contains(stdout.String(), "mdrelease version [flags] Print [repo-folder] v<latest-changelog-version>") {
+	if !strings.Contains(stdout.String(), "mdrelease version [flags] Print <latest-changelog-version>") {
 		t.Fatalf("stdout missing version command details, got: %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "Installed mdrelease version: v0.0.0") {
+		t.Fatalf("stdout missing installed version in help output, got: %q", stdout.String())
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr not empty: %q", stderr.String())
@@ -136,20 +139,19 @@ func TestRun_VersionFlagPrintsToolVersion(t *testing.T) {
 	}
 }
 
-func TestRun_VersionCommandPrintsRepoNameAndVersion(t *testing.T) {
+func TestRun_VersionCommandPrintsSemver(t *testing.T) {
 	changelogPath := writeChangelog(t)
 	var stdout, stderr bytes.Buffer
 
 	err := run([]string{"version", "--changelog", changelogPath}, &stdout, &stderr, deps{
 		getenv: func(string) string { return "" },
-		getwd:  func() (string, error) { return "/tmp/sample-repo", nil },
 		newGit: func(out, errOut io.Writer, dry bool) gitOps { return &fakeGit{} },
 	})
 	if err != nil {
 		t.Fatalf("run returned error: %v", err)
 	}
-	if got := strings.TrimSpace(stdout.String()); got != "sample-repo v1.2.3" {
-		t.Fatalf("stdout = %q, want %q", got, "sample-repo v1.2.3")
+	if got := strings.TrimSpace(stdout.String()); got != "1.2.3" {
+		t.Fatalf("stdout = %q, want %q", got, "1.2.3")
 	}
 }
 

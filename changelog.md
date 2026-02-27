@@ -1,3 +1,8 @@
+# 0.8.0 - Update: Restore plain semver version output
+- Make `mdrelease version` print `<latest-changelog-version>` only (for example, `5.7.0`).
+- Add installed CLI version display to `mdrelease --help` output.
+- Update tests and docs to reflect the revised version/help output contract.
+
 # 0.7.1 - Update: README.md go install uses pinned version
 - pinned to v0.7.1 for this release
 

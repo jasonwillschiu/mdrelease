@@ -9,7 +9,7 @@ Initial distribution is via `go install`.
 ## Install
 
 ```bash
-go install github.com/jasonwillschiu/mdrelease@v0.7.1
+go install github.com/jasonwillschiu/mdrelease@v0.8.0
 ```
 
 ## Supported Changelog Format (v1)
@@ -51,11 +51,9 @@ Validates changelog parsing and git preconditions without creating commits or ta
 
 ### `mdrelease version`
 
-Prints repo-aware version output as:
+Prints latest changelog version as:
 
-- `[repo-folder] v<latest-changelog-version>`
-
-The repo folder name is derived from the current working directory basename.
+- `<latest-changelog-version>` (for example, `5.7.0`)
 
 ## Global Convenience Flags
 
@@ -63,7 +61,7 @@ These work at the top level (without a subcommand):
 
 - `--help` (also `-h`, `-help`) prints root usage and exits successfully
 - `--version` (also `-version`) prints the installed `mdrelease` CLI version (`mdrelease version vX.Y.Z`)
-- Root help output explicitly documents both version modes (`mdrelease --version` vs `mdrelease version`)
+- Root help output includes the installed `mdrelease` version and documents both version modes (`mdrelease --version` vs `mdrelease version`)
 
 ## Common Flags
 
@@ -118,7 +116,7 @@ mdrelease --help
 # Print mdrelease CLI version
 mdrelease --version
 
-# Print repo version from changelog in current repo folder
+# Print changelog version as plain semver
 mdrelease version
 ```
 
@@ -131,5 +129,5 @@ mdrelease version
 - `--force-retag` allows reusing an existing version tag by deleting prior local/remote tags as needed before push.
 - Default full release fails if there are no changes to commit after staging (`git add -A`).
 - Default full release also requires a configured git remote named `origin` (or use `--remote <name>`).
-- `mdrelease version` prints `[repo-folder] v<latest-changelog-version>`, with errors on stderr.
+- `mdrelease version` prints `<latest-changelog-version>`, with errors on stderr.
 - `mdrelease --version` prints the mdrelease CLI version string.
