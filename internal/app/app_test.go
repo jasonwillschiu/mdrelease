@@ -110,21 +110,43 @@ func TestRun_HelpFlagPrintsRootUsage(t *testing.T) {
 	if !strings.Contains(stdout.String(), "Usage:") {
 		t.Fatalf("stdout missing usage, got: %q", stdout.String())
 	}
+	if !strings.Contains(stdout.String(), "--version, -version") {
+		t.Fatalf("stdout missing --version help details, got: %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "mdrelease version [flags] Print [repo-folder] v<latest-changelog-version>") {
+		t.Fatalf("stdout missing version command details, got: %q", stdout.String())
+	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr not empty: %q", stderr.String())
 	}
 }
 
-func TestRun_VersionFlagAliasesVersionCommand(t *testing.T) {
-	changelogPath := writeChangelog(t)
+func TestRun_VersionFlagPrintsToolVersion(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
-	code := Run([]string{"--version", "--changelog", changelogPath}, &stdout, &stderr)
+	code := Run([]string{"--version"}, &stdout, &stderr)
 	if code != ExitOK {
 		t.Fatalf("exit code = %d, want %d (stderr: %s)", code, ExitOK, stderr.String())
 	}
-	if got := strings.TrimSpace(stdout.String()); got != "1.2.3" {
-		t.Fatalf("stdout = %q, want %q", got, "1.2.3")
+	if got := strings.TrimSpace(stdout.String()); got != "mdrelease version v0.0.0" {
+		t.Fatalf("stdout = %q, want %q", got, "mdrelease version v0.0.0")
+	}
+}
+
+func TestRun_VersionCommandPrintsRepoNameAndVersion(t *testing.T) {
+	changelogPath := writeChangelog(t)
+	var stdout, stderr bytes.Buffer
+
+	err := run([]string{"version", "--changelog", changelogPath}, &stdout, &stderr, deps{
+		getenv: func(string) string { return "" },
+		getwd:  func() (string, error) { return "/tmp/sample-repo", nil },
+		newGit: func(out, errOut io.Writer, dry bool) gitOps { return &fakeGit{} },
+	})
+	if err != nil {
+		t.Fatalf("run returned error: %v", err)
+	}
+	if got := strings.TrimSpace(stdout.String()); got != "sample-repo v1.2.3" {
+		t.Fatalf("stdout = %q, want %q", got, "sample-repo v1.2.3")
 	}
 }
 

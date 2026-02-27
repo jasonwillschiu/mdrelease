@@ -3,6 +3,7 @@ package changelog
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -47,9 +48,17 @@ func ParseLatest(path string) (*Entry, error) {
 		_ = file.Close()
 	}()
 
+	return parseLatestFromReader(file, path)
+}
+
+func ParseLatestContent(content, path string) (*Entry, error) {
+	return parseLatestFromReader(strings.NewReader(content), path)
+}
+
+func parseLatestFromReader(r io.Reader, path string) (*Entry, error) {
 	headerRegex := regexp.MustCompile(`^#\s*([0-9]+(?:\.[0-9]+){1,2}(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)\s*-\s*(.+)$`)
 
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(r)
 	var entry Entry
 	collecting := false
 	var bulletLines []string

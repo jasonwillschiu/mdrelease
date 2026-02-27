@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/jasonwillschiu/mdrelease/internal/changelog"
@@ -19,7 +20,11 @@ const (
 	ExitParse     = 3
 	ExitPreflight = 4
 	ExitGit       = 5
+
+	toolName = "mdrelease"
 )
+
+var ToolVersion = "v0.0.0"
 
 type gitOps interface {
 	EnsureRepo() error
@@ -43,6 +48,7 @@ type gitOps interface {
 
 type deps struct {
 	getenv func(string) string
+	getwd  func() (string, error)
 	newGit func(io.Writer, io.Writer, bool) gitOps
 }
 
@@ -57,6 +63,7 @@ func (e *preflightError) Error() string { return e.msg }
 func Run(args []string, stdout, stderr io.Writer) int {
 	d := deps{
 		getenv: os.Getenv,
+		getwd:  os.Getwd,
 		newGit: func(out, errOut io.Writer, dryRun bool) gitOps {
 			return gitutil.NewClient(out, errOut, dryRun)
 		},
@@ -98,14 +105,14 @@ func run(args []string, stdout, stderr io.Writer, d deps) error {
 			printRootUsage(stdout)
 			return nil
 		case "-version", "--version":
-			return runVersion(args[1:], stdout, stderr, d)
+			return runToolVersion(args[1:], stdout, stderr)
 		}
 	}
 
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		switch args[0] {
 		case "version":
-			return runVersion(args[1:], stdout, stderr, d)
+			return runRepoVersion(args[1:], stdout, stderr, d)
 		case "check":
 			return runCheck(args[1:], stdout, stderr, d)
 		default:
@@ -130,7 +137,16 @@ type releaseActions struct {
 	pushTag    bool
 }
 
-func runVersion(args []string, stdout, stderr io.Writer, d deps) error {
+func runToolVersion(args []string, stdout, stderr io.Writer) error {
+	if len(args) != 0 {
+		return &usageError{msg: "--version does not accept additional arguments"}
+	}
+
+	_, _ = fmt.Fprintf(stdout, "%s version %s\n", toolName, ToolVersion)
+	return nil
+}
+
+func runRepoVersion(args []string, stdout, stderr io.Writer, d deps) error {
 	fs := flag.NewFlagSet("mdrelease version", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
@@ -152,8 +168,31 @@ func runVersion(args []string, stdout, stderr io.Writer, d deps) error {
 	if err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintln(stdout, entry.Version)
+	repoName, err := repoNameFromWorkingDir(d.getwd)
+	if err != nil {
+		return err
+	}
+	repoVersion := entry.Version
+	if !strings.HasPrefix(repoVersion, "v") {
+		repoVersion = "v" + repoVersion
+	}
+	_, _ = fmt.Fprintf(stdout, "%s %s\n", repoName, repoVersion)
 	return nil
+}
+
+func repoNameFromWorkingDir(getwd func() (string, error)) (string, error) {
+	if getwd == nil {
+		return "", fmt.Errorf("determine repo name: no working-directory provider")
+	}
+	wd, err := getwd()
+	if err != nil {
+		return "", fmt.Errorf("determine repo name: %w", err)
+	}
+	name := filepath.Base(filepath.Clean(wd))
+	if name == "." || name == string(filepath.Separator) || name == "" {
+		return "", fmt.Errorf("determine repo name: invalid working directory %q", wd)
+	}
+	return name, nil
 }
 
 func runCheck(args []string, stdout, stderr io.Writer, d deps) error {
@@ -466,7 +505,11 @@ func printRootUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "Usage:")
 	_, _ = fmt.Fprintln(w, "  mdrelease [flags]        Run release (default is full release, equivalent to --all)")
 	_, _ = fmt.Fprintln(w, "  mdrelease check [flags]  Validate changelog and git preconditions")
-	_, _ = fmt.Fprintln(w, "  mdrelease version [flags] Print latest changelog version")
+	_, _ = fmt.Fprintln(w, "  mdrelease version [flags] Print [repo-folder] v<latest-changelog-version>")
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, "Global flags:")
+	_, _ = fmt.Fprintln(w, "  --help, -h, -help        Print this usage")
+	_, _ = fmt.Fprintln(w, "  --version, -version      Print installed mdrelease version (mdrelease version vX.Y.Z)")
 	_, _ = fmt.Fprintln(w)
 	_, _ = fmt.Fprintln(w, "Examples:")
 	_, _ = fmt.Fprintln(w, "  mdrelease")
@@ -474,4 +517,6 @@ func printRootUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  mdrelease --commit --tag --push")
 	_, _ = fmt.Fprintln(w, "  mdrelease --tag --push-tag")
 	_, _ = fmt.Fprintln(w, "  mdrelease --tag --push-tag --force-retag")
+	_, _ = fmt.Fprintln(w, "  mdrelease --version")
+	_, _ = fmt.Fprintln(w, "  mdrelease version")
 }

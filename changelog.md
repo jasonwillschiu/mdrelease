@@ -1,3 +1,9 @@
+# 0.7.0 - Update: Separate tool and repo versions
+- Make `mdrelease --version` print the installed CLI version in the format `mdrelease version vX.Y.Z`.
+- Embed `changelog.md` into the binary at build time and derive the CLI version from its latest entry.
+- Make `mdrelease version` print `[repo-folder] v<latest-changelog-version>` using the current folder name.
+- Expand root `--help` text to clearly document both version modes.
+
 # 0.6.0 - Add: Sync pushes and force retag
 - Sync remote state before any push flow by fetching refs/tags and requiring a fast-forward-only pull.
 - Add `--force-retag` to delete and recreate release tags, including remote tag replacement in push-tag flows.

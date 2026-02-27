@@ -17,6 +17,8 @@ This repository is a small Go CLI (`mdrelease`) for changelog-driven releases.
 Keep new code in `internal/` packages unless it must be part of the executable entrypoint.
 
 - Keep root CLI aliases `--help` and `--version` aligned with root usage output and `version` subcommand behavior.
+- `mdrelease --version` must print installed CLI version from embedded `changelog.md`.
+- `mdrelease version` must print `[repo-folder] v<latest-changelog-version>` (repo name = cwd basename).
 - Require a git remote only for push actions; local-only release actions must work without `origin`.
 - For push actions, sync remote state before push (`fetch --tags --prune` then `pull --ff-only`) and fail if pull is not fast-forward.
 - `--force-retag` must support deleting/replacing existing release tags (remote when pushing tags, local when recreating tags).

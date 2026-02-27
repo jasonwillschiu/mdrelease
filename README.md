@@ -51,14 +51,19 @@ Validates changelog parsing and git preconditions without creating commits or ta
 
 ### `mdrelease version`
 
-Prints only the latest changelog version (stdout only), which is safe for scripting.
+Prints repo-aware version output as:
+
+- `[repo-folder] v<latest-changelog-version>`
+
+The repo folder name is derived from the current working directory basename.
 
 ## Global Convenience Flags
 
 These work at the top level (without a subcommand):
 
 - `--help` (also `-h`, `-help`) prints root usage and exits successfully
-- `--version` (also `-version`) aliases `mdrelease version`
+- `--version` (also `-version`) prints the installed `mdrelease` CLI version (`mdrelease version vX.Y.Z`)
+- Root help output explicitly documents both version modes (`mdrelease --version` vs `mdrelease version`)
 
 ## Common Flags
 
@@ -110,8 +115,11 @@ mdrelease --changelog release-notes.md
 # Print root usage
 mdrelease --help
 
-# Print latest version (alias for `mdrelease version`)
+# Print mdrelease CLI version
 mdrelease --version
+
+# Print repo version from changelog in current repo folder
+mdrelease version
 ```
 
 ## Notes / Failure Cases
@@ -123,5 +131,5 @@ mdrelease --version
 - `--force-retag` allows reusing an existing version tag by deleting prior local/remote tags as needed before push.
 - Default full release fails if there are no changes to commit after staging (`git add -A`).
 - Default full release also requires a configured git remote named `origin` (or use `--remote <name>`).
-- `mdrelease version` prints only the version string, with errors on stderr.
-- `mdrelease --version` is a top-level alias for `mdrelease version`.
+- `mdrelease version` prints `[repo-folder] v<latest-changelog-version>`, with errors on stderr.
+- `mdrelease --version` prints the mdrelease CLI version string.
